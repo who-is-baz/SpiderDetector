@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spider-Society Anomaly Detector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;600;800&family=Rubik+Glitch&display=swap" rel="stylesheet">
+<style>
+  /* ---- Variables y base ---- */
+  :root {
+    --bg: #07080f;
+    --panel: #11142a;
+    --panel2: #0c0f20;
+    --text: #f4f6ff;
+    --muted: #a9b0d6;
+    --green: #2ee59d;
+    --amber: #ffc21a;
+    --red: #ff3355;
+    --gray: #8890b0;
+    --blue: #4c7dff;
+    --magenta: #ff2bd6;
+    --cyan: #00e5ff;
+    --accent: var(--gray);   /* app.js lo cambia al color del grupo */
+    --comic: 'Bangers', Impact, 'Arial Black', sans-serif;
+    --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --cut: 34px;
+  }
+
+  /* la letra escala con el ancho para que se lea en el proyector */
+  html {
+    font-size: clamp(15px, .55vw + 10px, 22px);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--text);
+    font: 1rem/1.45 var(--sans);
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(ellipse at 50% 0%, rgba(76, 125, 255, .16), transparent 60%),
+      radial-gradient(rgba(255, 255, 255, .075) 1.1px, transparent 1.7px);
+    background-size: 100% 100%, 11px 11px;
+    background-attachment: fixed;
+  }
+
+  button,
+  input {
+    font: inherit;
+  }
+
+  /* ---- Botones ---- */
+  button {
+    background: var(--panel);
+    color: var(--text);
+    border: 2px solid #000;
+    border-radius: 6px;
+    padding: .5em .9em;
+    cursor: pointer;
+    font-weight: 600;
+    box-shadow: 3px 3px 0 #000;
+    transition: transform .08s, box-shadow .08s;
+  }
+
+  button:hover {
+    background: #1a1f3d;
+  }
+
+  button:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 #000;
+  }
+
+  button.primary {
+    background: var(--blue);
+    color: #fff;
+  }
+
+  button:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+  }
+
+  /* ---- Cabecera ---- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 14px 28px;
+    border-bottom: 3px solid #000;
+    background: linear-gradient(90deg, #0d1030, #160b26);
+    box-shadow: 0 4px 0 rgba(255, 51, 85, .6);
+  }
+
+  h1 {
+    margin: 0;
+    font: 400 2.1rem/1 var(--comic);
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    text-shadow: 3px 3px 0 #000;
+  }
+
+  h1 span {
+    color: var(--red);
+  }
+
+  .conn {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    font-weight: 600;
+  }
+
+  .dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 6px;
+    border-radius: 50%;
+    border: 2px solid #000;
+    background: var(--gray);
+    vertical-align: -1px;
+  }
+
+  .dot.on {
+    background: var(--green);
+    box-shadow: 0 0 10px var(--green);
+  }
+
+  /* ---- Aviso de navegador sin Web Serial ---- */
+  .banner {
+    display: none;
+    margin: 16px 28px 0;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: .9rem;
+  }
+
+  .banner.show {
+    display: block;
+  }
+
+  #bannerSerial {
+    background: #3a2a0a;
+    border: 2px solid var(--amber);
+    color: #ffe3a1;
+  }
+
+  /* ---- Layout ---- */
+  main {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) minmax(0, 1.55fr);
+    gap: 24px;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 24px 28px;
+  }
+
+  .stack {
+    display: grid;
+    gap: 20px;
+    align-content: start;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 2px solid #000;
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 5px 5px 0 rgba(0, 0, 0, .6);
+  }
+
+  h2 {
+    margin: 0 0 10px;
+    font-size: .8rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  @media (max-width: 900px) {
+    main {
+      grid-template-columns: 1fr;
+      padding: 16px;
+    }
+  }
+
+  /* ---- Cámara y deslizadores ---- */
+  #cam {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    padding: 12px;
+    overflow: hidden;
+    background: #000;
+    border: 3px solid #000;
+    border-radius: 6px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  #cam canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .controls {
+    display: grid;
+    gap: 12px;
+    margin-top: 16px;
+    font-size: .9rem;
+    color: var(--muted);
+  }
+
+  .controls label {
+    display: grid;
+    grid-template-columns: minmax(120px, 11em) 1fr 3.2em;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .controls span {
+    text-align: right;
+    font-weight: 800;
+    color: var(--text);
+  }
+
+  input[type=range] {
+    width: 100%;
+    accent-color: var(--red);
+  }
+
+  .hint {
+    margin: -4px 0 0;
+    font-size: .75rem;
+    color: var(--muted);
+  }
+
+  /* ---- Tarjeta del personaje ---- */
+  /* la sombra va en el contenedor porque el clip-path de #result la recortaría */
+  .result-wrap {
+    filter: drop-shadow(6px 6px 0 #000);
+  }
+
+  /* el fondo de #result es el borde de color; .char-in queda encima con la esquina recortada */
+  #result {
+    position: relative;
+    padding: 7px;
+    background: var(--accent);
+    transition: background-color .25s;
+    clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+  }
+
+  .char-in {
+    position: relative;
+    overflow: hidden;
+    padding: 24px 26px 26px;
+    background: var(--panel2);
+    clip-path: polygon(0 0, calc(100% - var(--cut) + 3px) 0, 100% calc(var(--cut) - 3px), 100% 100%, 0 100%);
+  }
+
+  /* líneas de velocidad desde la esquina superior derecha */
+  .speed {
+    position: absolute;
+    inset: -20%;
+    pointer-events: none;
+    opacity: .55;
+    background: repeating-conic-gradient(from 0deg at 78% 22%, color-mix(in srgb, var(--accent) 30%, transparent) 0deg 1.6deg, transparent 1.6deg 7deg);
+    -webkit-mask: radial-gradient(circle at 78% 22%, transparent 18%, #000 70%);
+    mask: radial-gradient(circle at 78% 22%, transparent 18%, #000 70%);
+  }
+
+  .char-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(7rem, 11rem) 1fr;
+    gap: 28px;
+    align-items: center;
+  }
+
+  /* la letra que recibe el ESP32 */
+  .letter {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border: 4px solid #000;
+    background: var(--accent);
+    color: #000;
+    font: 400 clamp(5rem, 6vw + 2rem, 9rem)/1 var(--comic);
+    box-shadow: 5px 5px 0 #000;
+    transition: background-color .25s;
+  }
+
+  .info {
+    min-width: 0;
+  }
+
+  .info-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-right: calc(var(--cut) - 10px);
+  }
+
+  .title {
+    display: inline-block;
+    padding: .2em .6em;
+    border: 2px solid #000;
+    background: var(--accent);
+    color: #000;
+    font-size: .85rem;
+    font-weight: 800;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    transform: skew(-8deg);
+  }
+
+  .spider {
+    margin: .25em 0 .2em;
+    color: #fff;
+    font: 400 clamp(2.4rem, 3.2vw + 1rem, 4.6rem)/1 var(--comic);
+    letter-spacing: .03em;
+    text-shadow: 3px 3px 0 #000, 6px 6px 0 var(--accent);
+    hyphens: none;
+  }
+
+  .sub {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--muted);
+  }
+
+  @media (max-width: 560px) {
+    .char-grid {
+      grid-template-columns: 1fr;
+      justify-items: center;
+      text-align: center;
+    }
+
+    .info-top {
+      justify-content: center;
+      margin-right: 0;
+    }
+  }
+
+  /* ---- Sello ---- */
+  .stamp {
+    position: relative;
+    z-index: 2;
+    padding: .12em .45em .05em;
+    border: 4px solid var(--accent);
+    border-radius: 4px;
+    background: rgba(7, 8, 15, .7);
+    box-shadow: inset 0 0 0 2px rgba(7, 8, 15, .7);
+    color: var(--accent);
+    font: 400 1.9rem/1 var(--comic);
+    letter-spacing: .1em;
+    transform: rotate(-9deg);
+    opacity: .95;
+  }
+
+  .stamp:empty {
+    display: none;
+  }
+
+  #result[data-g="anomalia"] .stamp {
+    animation: pulso 1s ease-in-out infinite;
+  }
+
+  @keyframes pulso {
+    50% { transform: rotate(-9deg) scale(1.08); }
+  }
+
+  /* ---- Entrada de la tarjeta en cada cambio ---- */
+  #result.enter .char-in {
+    animation: entrar .38s cubic-bezier(.2, .8, .3, 1.2) both;
+  }
+
+  @keyframes entrar {
+    from { opacity: 0; transform: scale(.93); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* ---- Glitch de Anomalía (dura 1.5 s, igual que GLITCH_MS) ---- */
+  .glitch-layer {
+    position: absolute;
+    inset: 7px;
+    z-index: 5;
+    display: none;
+    place-items: center;
+    overflow: hidden;
+    pointer-events: none;
+    background:
+      repeating-linear-gradient(0deg, rgba(0, 0, 0, .55) 0 2px, transparent 2px 5px),
+      rgba(10, 0, 20, .55);
+  }
+
+  .glitch-layer::before,
+  .glitch-layer::after {
+    content: '';
+    position: absolute;
+    left: -10%;
+    right: -10%;
+    height: 14%;
+    mix-blend-mode: screen;
+  }
+
+  .glitch-layer::before {
+    top: 20%;
+    background: var(--magenta);
+    animation: barra 1.5s steps(1) both;
+  }
+
+  .glitch-layer::after {
+    top: 62%;
+    background: var(--cyan);
+    animation: barra 1.5s steps(1) reverse both;
+  }
+
+  .glitch-txt {
+    position: relative;
+    color: #fff;
+    font: 400 clamp(2.6rem, 5vw, 5rem)/1 'Rubik Glitch', var(--comic);
+    letter-spacing: .04em;
+    text-shadow: -4px 0 var(--magenta), 4px 0 var(--cyan);
+    animation: rgb .18s steps(2) infinite;
+  }
+
+  #result.glitching .glitch-layer {
+    display: grid;
+    animation: parpadeo 1.5s steps(1) both;
+  }
+
+  #result.glitching .char-in {
+    animation: sacudir .22s steps(2) infinite;
+    filter: drop-shadow(-5px 0 var(--magenta)) drop-shadow(5px 0 var(--cyan)) contrast(1.3);
+  }
+
+  @keyframes sacudir {
+    0% { transform: translateX(0); clip-path: inset(0 0 0 0); }
+    25% { transform: translateX(-10px); clip-path: inset(12% 0 55% 0); }
+    50% { transform: translateX(8px); clip-path: inset(48% 0 18% 0); }
+    75% { transform: translateX(-4px); clip-path: inset(0 0 70% 0); }
+  }
+
+  @keyframes rgb {
+    0% { transform: translateX(0); text-shadow: -4px 0 var(--magenta), 4px 0 var(--cyan); }
+    50% { transform: translateX(6px) skewX(-8deg); text-shadow: 7px 0 var(--magenta), -7px 0 var(--cyan); }
+  }
+
+  @keyframes parpadeo {
+    0% { opacity: 1; }
+    12% { opacity: .25; }
+    18% { opacity: 1; }
+    45% { opacity: .55; }
+    50% { opacity: 1; }
+    78% { opacity: .2; }
+    83% { opacity: 1; }
+    100% { opacity: 1; }
+  }
+
+  @keyframes barra {
+    0% { transform: translateX(-30%) scaleY(.4); }
+    15% { transform: translateX(25%) scaleY(1); }
+    30% { transform: translateX(-5%) translateY(140%) scaleY(.3); }
+    45% { transform: translateX(40%) translateY(-60%) scaleY(.8); }
+    60% { transform: translateX(-35%) translateY(90%) scaleY(.2); }
+    75% { transform: translateX(10%) translateY(-120%) scaleY(1); }
+    90% { opacity: 0; }
+  }
+
+  /* ---- Barras por grupo ---- */
+  .bars {
+    display: grid;
+    gap: 12px;
+  }
+
+  .bar {
+    display: grid;
+    grid-template-columns: minmax(7em, 9em) 1fr 3.2em;
+    gap: 12px;
+    align-items: center;
+    font-size: .95rem;
+    font-weight: 800;
+  }
+
+  .bar > span:first-child {
+    color: var(--c);
+  }
+
+  .track {
+    height: 18px;
+    overflow: hidden;
+    border: 2px solid #000;
+    background: #05060d;
+    transform: skew(-10deg);
+  }
+
+  .fill {
+    width: 0;
+    height: 100%;
+    background: var(--c);
+    opacity: .4;
+    transition: width .08s linear;
+  }
+
+  .bar.top .fill {
+    opacity: 1;
+    box-shadow: 0 0 12px var(--c);
+  }
+
+  .pct {
+    text-align: right;
+  }
+
+  #closest {
+    min-height: 1.4em;
+    margin-top: 12px;
+    font-size: .9rem;
+    color: var(--muted);
+  }
+
+  /* ---- Prueba manual y registro ---- */
+  .tests {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+
+  .tests button[data-send="S"] {
+    border-color: var(--green);
+  }
+
+  .tests button[data-send="V"] {
+    border-color: var(--amber);
+  }
+
+  .tests button[data-send="A"] {
+    border-color: var(--red);
+  }
+
+  #log {
+    max-height: 110px;
+    margin-top: 12px;
+    overflow: auto;
+    font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace;
+    color: var(--muted);
+    white-space: pre-wrap;
+  }
+
+  /* ---- Movimiento reducido ---- */
+  @media (prefers-reduced-motion: reduce) {
+    #result.glitching .char-in,
+    .glitch-txt,
+    .glitch-layer::before,
+    .glitch-layer::after,
+    #result[data-g="anomalia"] .stamp {
+      animation: none;
+    }
+
+    #result.enter .char-in {
+      animation-duration: .01s;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>Spider</span>-Society · Anomaly Detector</h1>
+  <div class="conn">
+    <span><i id="dot" class="dot"></i><span id="connText">ESP32 desconectado</span></span>
+    <button id="btnConnect" class="primary">Conectar ESP32</button>
+    <button id="btnCam">Iniciar cámara</button>
+  </div>
+</header>
+
+<div id="bannerSerial" class="banner"></div>
+
+<main>
+  <section class="stack">
+    <div class="card">
+      <h2>Cámara</h2>
+      <div id="cam"><span id="camMsg">Haz clic en “Iniciar cámara”.<br>Se carga el modelo y se pide permiso de cámara.</span></div>
+      <div class="controls">
+        <label>Confianza mínima <input id="thr" type="range" min="50" max="99" value="80"><span id="thrV">80%</span></label>
+        <label>Frames estables <input id="stab" type="range" min="1" max="30" value="6"><span id="stabV">6</span></label>
+        <label>Margen contra Neutral <input id="margin" type="range" min="0" max="60" value="15"><span id="marginV">15</span></label>
+        <p class="hint">Un personaje solo cuenta si le gana a “Neutral” por este número de puntos. Súbelo si con la plataforma vacía aparecen personajes.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack">
+    <div class="result-wrap"><div id="result" data-g="neutral">
+      <div class="char-in">
+        <div class="speed"></div>
+        <div class="char-grid">
+          <div class="letter" id="rLetter">N</div>
+          <div class="info">
+            <div class="info-top">
+              <div class="title" id="rTitle">SIN MINIFIG</div>
+              <div id="rStamp" class="stamp"></div>
+            </div>
+            <div class="spider" id="rSpider">SIN MINIFIG</div>
+            <div class="sub" id="rSub">Esperando personaje…</div>
+          </div>
+        </div>
+      </div>
+      <div class="glitch-layer" aria-hidden="true"><div class="glitch-txt">ANOMALÍA</div></div>
+    </div></div>
+
+    <div class="card">
+      <h2>Probabilidad por grupo</h2>
+      <div class="bars" id="bars"></div>
+      <div id="closest"></div>
+    </div>
+
+    <div class="card">
+      <h2>Prueba manual del ESP32 (sin cámara)</h2>
+      <div class="tests">
+        <button data-send="S">S · Sociedad</button>
+        <button data-send="V">V · Desertor</button>
+        <button data-send="A">A · Anomalía</button>
+        <button data-send="N">N · Nada</button>
+      </div>
+      <div id="log"></div>
+    </div>
+  </section>
+</main>
+
+<script src="lib/tf.min.js"></script>
+<script src="lib/teachablemachine-image.min.js"></script>
+<script src="personajes.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
